@@ -1,0 +1,50 @@
+name: On-Demand Rezi MCP Client
+on:
+  workflow_dispatch:
+    inputs:
+      tool_name:
+        description: 'Rezi MCP Tool to execute'
+        required: true
+        type: choice
+        options:
+          - list_resumes
+          - read_resume
+          - get_resume_format
+          - write_resume
+          - search_jobs
+          - get_job_details
+      tool_args:
+        description: 'JSON arguments (e.g., {"resume_id": "123"} for read_resume)'
+        required: true
+        default: '{}'
+
+jobs:
+  execute-rezi-tool:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.2'
+          
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+          
+      - name: Run Rezi MCP Tool
+        env:
+          REZI_ACCESS_TOKEN: ${{ secrets.REZI_ACCESS_TOKEN }}
+        run: |
+          python rezi_runner.py --tool "${{ github.event.inputs.tool_name }}" --kwargs '${{ github.event.inputs.tool_args }}'
+          
+      - name: Commit Persistent JSON Output
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add mcp_outputs/
+          git commit -m "chore: save output for Rezi tool ${{ github.event.inputs.tool_name }}" || echo "No changes"
+          git push
